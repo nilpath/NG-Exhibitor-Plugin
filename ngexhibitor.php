@@ -35,6 +35,8 @@ class NGExhibitor {
   		);
 		register_post_type('ngexhibitor',$args);
 		
+		add_action("admin_init", array(&$this, "ngexhibitor_admin_init"));
+		
 		add_action("admin menu", array(&$this, $ngexhibitor_add_pages));
 		
 		/*add_filter("manage_edit-ngevent_columns", array(&$this, "edit_columns")); // Kolumnrubriker under eventlistan
@@ -67,4 +69,13 @@ class NGExhibitor {
 		}
 	}
 	
+	function ngexhibitor_admin_init() {
+		add_meta_box("ngexhibitor-meta", __('Exhibitor settings'), array(&$this, "meta_options"), "ngexhibitor", "normal", "high");
+	}
+	
+	function meta_options()
+	{
+		global $post;
+		$custom = get_post_custom($post->ID);
+	}
 }	
