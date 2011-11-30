@@ -2,6 +2,8 @@
 
 class NGExhibitor {
 
+	var $meta_fields = array( "ngexhibitor-searchwords", "ngexhibitor-availableforOpt1", "ngexhibitor-availableforOpt2", "ngexhibitor-availableforOpt3"); //för varje option måste det läggas till ett metafält?
+
 	function NGExhibitor() {
 		/* Skapa custom posttype ngevent */
 		$labels = array(
@@ -26,7 +28,7 @@ class NGExhibitor {
 			'publicly_queryable' => true,
 			'show_ui' => true,
 			'query_var' => true,
-			'rewrite' => array("slug" => "event"),
+			'rewrite' => array("slug" => "exhibitor"),
 			'capability_type' => 'post',
 			'hierarchical' => false,
 			'menu_position' => null,
@@ -35,30 +37,48 @@ class NGExhibitor {
   		);
 		register_post_type('ngexhibitor',$args);
 		
+		add_filter("manage_edit-ngexhibitor_columns", array(&$this, "edit_columns"));
+		
+		add_action("manage_posts_custom_column", array(&$this, "custom_columns"));
+		
 		add_action("admin_init", array(&$this, "ngexhibitor_admin_init"));
+		
+		add_action("wp_insert_post", array(&$this, "ngexhibitor_wp_insert_post"), 10, 2);
 		
 		add_action("admin menu", array(&$this, $ngexhibitor_add_pages));
 		
-		/*add_filter("manage_edit-ngevent_columns", array(&$this, "edit_columns")); // Kolumnrubriker under eventlistan
-		add_action("manage_posts_custom_column", array(&$this, "custom_columns")); // Kolumninnehåll under eventlistan
-
-		add_filter('pre_get_posts',array(&$this, "rss_include_events")); // Inkluderar events i rss-flödet
-
-		add_action("admin_init", array(&$this, "nge_admin_init")); // Skapar custom data-box under Lägg till event
-		add_action("wp_insert_post", array(&$this, "nge_wp_insert_post"), 10, 2); // Hantera custom data när man lägger till
-		//$this->insert_to_googleCal(10, 2); //Lägg till i googlecalendern
-
-		add_action("admin_menu", array(&$this, "nge_add_pages")); // Registrerar undersidor till admin
-		
-		if (get_option("rss_use_excerpt")) add_filter("the_excerpt_rss", array(&$this, "embed_rssfooter")); // Lägger till footer med länk till formuläret i rss
-		else add_filter("the_content", array(&$this, "embed_rssfooter"));
-
-		if (get_option("rss_use_excerpt")) add_filter("the_excerpt_rss", array(&$this, "strip_tags_from_rss")); // Rensar bort en vissa taggar från rss
-		else add_filter("the_content", array(&$this, "strip_tags_from_rss"));
-		
-		add_filter('posts_where', array(&$this, 'publish_later_on_feed')); // Ger 5 min marginal för ändringar innan det släpps i RSS*/
 	}
-
+	
+	function edit_columns( $columns ) {
+		$columns = array(
+			"cb" => "<input type=\"checkbox\" />",
+			"title" => "Rubrik",
+			//"nge-date" => "Datum",
+			"ngexhibitor-searchwords" => __('search words'),
+			"ngexhibitor-availablefor" => __('Available For(other word needed'),
+		);
+		
+		return $columns;
+	}
+	
+	function custom_columns( $column ) {
+		global $post;
+		global $wpdb;
+		switch ($column)
+		{
+			case "ngexhibitor-searchwords":
+				$custom = get_post_custom();
+				echo @$custom["ngexhibitor-searchwords"][0];
+				break;
+			case "ngexhibitor-availablefor":
+				$custom = get_post_custom();
+				echo @$custom["ngexhibitor-availableforOpt1"][0];
+				echo ", " . @$custom["ngexhibitor-availableforOpt2"][0];
+				echo ", " . @$custom["ngexhibitor-availableforOpt3"][0];
+				break;
+		}
+	}
+	
 	function ngexhibitor_add_pages(){
 		global $_registered_pages;
 	
@@ -77,5 +97,52 @@ class NGExhibitor {
 	{
 		global $post;
 		$custom = get_post_custom($post->ID);
+		$ngexhibitor_searchwords = @$custom["ngexhibitor-searchwords"][0];
+		//Måste anpassas för varje option.
+		$ngexhibitor_availableforOpt1 = @$custom["ngexhibitor-availableforOpt1"][0];
+		$ngexhibitor_availableforOpt2 = @$custom["ngexhibitor-availableforOpt2"][0];
+		$ngexhibitor_availableforOpt3 = @$custom["ngexhibitor-availableforOpt3"][0];
+		
+		?>
+		
+			<label for="ngexhibitor-searchwords"><?php echo __('Search Words');?>: <input id="ngexhibitor-searchwords" name="ngexhibitor-searchwords" type="text" value="<?php echo $ngexhibitor_searchwords; ?>" /> (<?php echo __('Comma seperated'); ?>)</label> <br />
+			<!-- To be optional, decided with the plugin in a plugin -->
+			<p><?php echo __('Something decided in options');?>:</p><input type="checkbox" name="ngexhibitor-availableforOpt1" <?php echo (!empty($ngexhibitor_availableforOpt1) ? " checked=\"checked\"" : ""); ?> value="Option 1" /> Option 1 <input type="checkbox" <?php echo (!empty($ngexhibitor_availableforOpt2) ? " checked=\"checked\"" : ""); ?> name="ngexhibitor-availableforOpt2" value="Option 2" /> Option 2 <input type="checkbox" <?php echo (!empty($ngexhibitor_availableforOpt3) ? " checked=\"checked\"" : ""); ?> name="ngexhibitor-availableforOpt3" value="Option 3" /> Option 3 <br /></label>
+		
+		<?php
 	}
-}	
+	
+	function ngexhibitor_wp_insert_post($post_id, $post = Null)
+	{
+		if($post->post_type == "ngexhibitor")
+		{
+		
+		// Copypasse!
+			foreach ($this->meta_fields as $key) {
+				$value = @$_POST[$key];
+				var_dump($value);
+				if (empty($value)) {
+					delete_post_meta($post_id, $key);
+					continue;
+				}
+
+				// Om värdet är en sträng så uppdatera till värdet om det finns, annars lägg till
+				if (!is_array($value)) {
+					if (!update_post_meta($post_id, $key, $value)) {
+						add_post_meta($post_id, $key, $value);
+					}
+				}
+				else {
+					// Om värdet är en array så ta bort alla tidigare och lägg till alla värden från arrayen
+					delete_post_meta($post_id, $key);
+					
+					// Loopar igenom array och lägger till
+					foreach ($value as $entry)
+						add_post_meta($post_id, $key, $entry);
+				}
+			}
+		}
+	}
+}
+
+?>	
