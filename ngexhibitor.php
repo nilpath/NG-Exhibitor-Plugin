@@ -33,7 +33,7 @@ class NGExhibitor {
 			'hierarchical' => false,
 			'menu_position' => null,
 			'supports' => array('title','editor','thumbnail'),
-			'taxonomies' => array('post_tag', 'category')
+			//'taxonomies' => array('post_tag', 'category')
   		);
 		register_post_type('ngexhibitor',$args);
 		
@@ -45,7 +45,7 @@ class NGExhibitor {
 		
 		add_action("wp_insert_post", array(&$this, "ngexhibitor_wp_insert_post"), 10, 2);
 		
-		add_action("admin menu", array(&$this, $ngexhibitor_add_pages));
+		add_action("admin_menu", array(&$this, "ngexhibitor_add_pages"));
 		
 	}
 	
@@ -79,14 +79,15 @@ class NGExhibitor {
 		}
 	}
 	
-	function ngexhibitor_add_pages(){
-		global $_registered_pages;
+	function ngexhibitor_add_pages()
+	{
+		
+		add_submenu_page('edit.php?post_type=ngexhibitor', 'LookingFor.. Settings', 'LookingFor.. Settings', 'manage_options', 'post_type=ngexhibitor&page=ngexhibitor/lookingForSettings.php');
+	}
 	
-		$code_pages = array('exhibitors.php');
-		foreach($code_pages as $code_page) {
-			$hookname = get_plugin_page_hookname("ngexhibitor/" . $code_page, '' );
-			$_registered_pages[$hookname] = true;
-		}
+	function ngexhibitor_add_lookingfor()
+	{
+		
 	}
 	
 	function ngexhibitor_admin_init() {
